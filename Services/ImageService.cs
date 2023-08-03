@@ -7,6 +7,8 @@ using ImageCompress.Image.DBContents;
 using ImageCompress.Image.DBModels.ImageCompress;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System;
+using Google.Protobuf;
 
 public class ImageService : ImageCompress.ImageService.ImageServiceBase
 {
@@ -98,10 +100,21 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
             return;
         using MemoryStream stream = new();
         await _storageClient.DownloadObjectAsync(request.IsCompressed ? FINISH_BUCKET_NAME : ORIGIN_BUCKET_NAME, request.FileId, stream);
-        response.FileContent = Google.Protobuf.ByteString.CopyFrom(stream.ToArray());
-        response.FileName = imageInfo.OriginFileName;
-        response.ContentType = imageInfo.ContentType;
-        await responseStream.WriteAsync(response);
+        var buffer = new byte[1024];
+        int bytesRead;
+        stream.Position = 0;
+        while ((bytesRead = await stream.ReadAsync(buffer)) > 0)
+        {
+            await responseStream.WriteAsync(new DownloadResponse
+            {
+                FileName = imageInfo.OriginFileName,
+                ContentType = imageInfo.ContentType,
+                FileContent = ByteString.CopyFrom(buffer, 0, bytesRead)
+            });
+        }
+        // response.FileContent = Google.Protobuf.ByteString.CopyFrom(stream.ToArray());
+        // response.FileName = imageInfo.OriginFileName;
+        // response.ContentType = imageInfo.ContentType;
         return;
     }
     public override async Task<DeleteResponse> DeleteImage(DeleteRequest request, ServerCallContext context)
