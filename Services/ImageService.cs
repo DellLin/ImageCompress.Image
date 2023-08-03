@@ -6,6 +6,7 @@ using ImageCompress;
 using ImageCompress.Image.DBContents;
 using ImageCompress.Image.DBModels.ImageCompress;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 public class ImageService : ImageCompress.ImageService.ImageServiceBase
 {
@@ -42,24 +43,35 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
         return response;
 
     }
-    public override async Task<UploadResponse> UploadImage(UploadRequest request, ServerCallContext context)
+    public override async Task<UploadResponse> UploadImage(IAsyncStreamReader<UploadRequest> request, ServerCallContext context)
     {
-        var response = new UploadResponse();
+        using var ms = new MemoryStream();
+        var imageInfo = new ImageInfo();
         var fileId = Guid.NewGuid();
-        var fileByteArray = request.FileContent.ToByteArray();
-        var imageInfo = new ImageInfo
+        imageInfo.Id = fileId;
+        imageInfo.State = 0;
+        imageInfo.UploadDate = DateTime.Now;
+        var response = new UploadResponse();
+        while (await request.MoveNext())
         {
-            Id = fileId,
-            AccountId = Guid.Parse(request.AccountId),
-            OriginFileName = request.FileName,
-            OriginSize = fileByteArray.Length,
-            ContentType = request.ContentType,
-            Quality = request.Quality,
-            State = 0,
-            UploadDate = DateTime.Now,
-        };
+            if (!string.IsNullOrEmpty(request.Current.AccountId))
+            { imageInfo.AccountId = Guid.Parse(request.Current.AccountId); }
+            if (!string.IsNullOrEmpty(request.Current.FileName))
+            { imageInfo.OriginFileName = request.Current.FileName; }
+            if (!string.IsNullOrEmpty(request.Current.ContentType))
+                imageInfo.ContentType = request.Current.ContentType;
+            if (request.Current.Quality != 0)
+            { imageInfo.Quality = request.Current.Quality; }
+            var truck = request.Current.FileContent;
+            await ms.WriteAsync(truck.ToByteArray());
+        }
+
+        var fileByteArray = ms.ToArray();
+        imageInfo.OriginSize = fileByteArray.Length;
+        _logger.LogInformation(JsonConvert.SerializeObject(imageInfo));
+
         _postgresContext.Add(imageInfo);
-        _storageClient.UploadObject(BUCKET_NAME, fileId.ToString(), request.ContentType, new MemoryStream(fileByteArray));
+        _storageClient.UploadObject(BUCKET_NAME, fileId.ToString(), imageInfo.ContentType, new MemoryStream(fileByteArray));
 
         await _postgresContext.SaveChangesAsync();
         var imageInfoItem = new ImageInfoItem
@@ -77,18 +89,19 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
         return response;
     }
 
-    public override async Task<DownloadResponse> DownloadImage(DownloadRequest request, ServerCallContext context)
+    public override async Task DownloadImage(DownloadRequest request, IServerStreamWriter<DownloadResponse> responseStream, ServerCallContext context)
     {
         var response = new DownloadResponse();
         var imageInfo = _postgresContext.ImageInfo.FirstOrDefault(t => t.Id == Guid.Parse(request.FileId));
         if (imageInfo == null)
-            return response;
+            return;
         using MemoryStream stream = new();
         await _storageClient.DownloadObjectAsync(BUCKET_NAME, request.FileId, stream);
         response.FileContent = Google.Protobuf.ByteString.CopyFrom(stream.ToArray());
         response.FileName = imageInfo.OriginFileName;
         response.ContentType = imageInfo.ContentType;
-        return response;
+        await responseStream.WriteAsync(response);
+        return;
     }
     public override async Task<DeleteResponse> DeleteImage(DeleteRequest request, ServerCallContext context)
     {

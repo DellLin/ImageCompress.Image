@@ -5,8 +5,8 @@ option csharp_namespace = "ImageCompress";
 package ImageCompress;
 
 service ImageService {
-  rpc UploadImage(UploadRequest) returns (UploadResponse);
-  rpc DownloadImage(DownloadRequest) returns (DownloadResponse);
+  rpc UploadImage(stream UploadRequest) returns (UploadResponse);
+  rpc DownloadImage(DownloadRequest) returns (stream DownloadResponse);
   rpc GetImageInfo(GetImageInfoRequest) returns (GetImageInfoResponse);
   rpc DeleteImage(DeleteRequest) returns (DeleteResponse);
 }
