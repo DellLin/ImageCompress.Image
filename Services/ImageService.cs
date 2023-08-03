@@ -54,9 +54,9 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
             OriginFileName = request.FileName,
             OriginSize = fileByteArray.Length,
             ContentType = request.ContentType,
+            Quality = request.Quality,
             State = 0,
-            CreateDate = DateTime.Now,
-            CreateBy = Guid.Parse(request.AccountId),
+            UploadDate = DateTime.Now,
         };
         _postgresContext.Add(imageInfo);
         _storageClient.UploadObject(BUCKET_NAME, fileId.ToString(), request.ContentType, new MemoryStream(fileByteArray));
@@ -69,6 +69,7 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
             OriginSize = imageInfo.OriginSize ?? 0,
             CompressedSize = imageInfo.CompressedSize ?? 0,
             ContentType = imageInfo.ContentType,
+            Quality = imageInfo.Quality ?? 100,
             State = imageInfo.State ?? 0,
         };
         response.Success = true;

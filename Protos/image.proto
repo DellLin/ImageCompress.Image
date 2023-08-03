@@ -15,7 +15,7 @@ message UploadRequest {
   bytes FileContent = 1;
   string FileName = 2;
   string ContentType = 3;
-  string CompressRatio = 4;
+  int32 Quality = 4;
   string AccountId = 5;
 }
 message UploadResponse {
@@ -48,5 +48,6 @@ message ImageInfoItem {
   int32 OriginSize = 3;
   int32 CompressedSize = 4;
   string ContentType = 5;
-  int32 State = 6;
+  int32 Quality = 6;
+  int32 State = 7;
 }
