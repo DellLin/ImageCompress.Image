@@ -30,7 +30,8 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
     public override async Task<GetImageInfoResponse> GetImageInfo(GetImageInfoRequest request, ServerCallContext context)
     {
         var response = new GetImageInfoResponse();
-        var imageList = await _postgresContext.ImageInfo.Where(t => t.AccountId == Guid.Parse(request.AccountId) && t.State >= 0).ToListAsync();
+        var imageList = await _postgresContext.ImageInfo.Where(t => t.AccountId == Guid.Parse(request.AccountId) && t.State >= 0)
+        .OrderByDescending(t => t.UploadDate).ToListAsync();
         foreach (var image in imageList)
         {
             response.Images.Add(new ImageInfoItem
@@ -100,7 +101,7 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
             return;
         using MemoryStream stream = new();
         await _storageClient.DownloadObjectAsync(request.IsCompressed ? FINISH_BUCKET_NAME : ORIGIN_BUCKET_NAME, request.FileId, stream);
-        var buffer = new byte[1024];
+        var buffer = new byte[1024 * 512];
         int bytesRead;
         stream.Position = 0;
         while ((bytesRead = await stream.ReadAsync(buffer)) > 0)
