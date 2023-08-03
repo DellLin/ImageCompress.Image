@@ -10,7 +10,8 @@ using Newtonsoft.Json;
 
 public class ImageService : ImageCompress.ImageService.ImageServiceBase
 {
-    private const string BUCKET_NAME = "image-compress-upload-image";
+    private const string ORIGIN_BUCKET_NAME = "image-compress-upload-image";
+    private const string FINISH_BUCKET_NAME = "image-compress-compressed-image";
     private readonly ILogger<ImageService> _logger;
     private readonly PostgresContext _postgresContext;
     private readonly StorageClient _storageClient;
@@ -71,7 +72,7 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
         _logger.LogInformation(JsonConvert.SerializeObject(imageInfo));
 
         _postgresContext.Add(imageInfo);
-        _storageClient.UploadObject(BUCKET_NAME, fileId.ToString(), imageInfo.ContentType, new MemoryStream(fileByteArray));
+        _storageClient.UploadObject(ORIGIN_BUCKET_NAME, fileId.ToString(), imageInfo.ContentType, new MemoryStream(fileByteArray));
 
         await _postgresContext.SaveChangesAsync();
         var imageInfoItem = new ImageInfoItem
@@ -96,7 +97,7 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
         if (imageInfo == null)
             return;
         using MemoryStream stream = new();
-        await _storageClient.DownloadObjectAsync(BUCKET_NAME, request.FileId, stream);
+        await _storageClient.DownloadObjectAsync(request.IsCompressed ? FINISH_BUCKET_NAME : ORIGIN_BUCKET_NAME, request.FileId, stream);
         response.FileContent = Google.Protobuf.ByteString.CopyFrom(stream.ToArray());
         response.FileName = imageInfo.OriginFileName;
         response.ContentType = imageInfo.ContentType;

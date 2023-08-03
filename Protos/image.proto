@@ -23,7 +23,10 @@ message UploadResponse {
   ImageInfoItem image = 2;
 }
 
-message DownloadRequest { string FileId = 1; }
+message DownloadRequest {
+  string FileId = 1;
+  bool IsCompressed = 2;
+}
 
 message DownloadResponse {
   bytes FileContent = 1;
