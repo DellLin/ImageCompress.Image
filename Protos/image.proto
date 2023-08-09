@@ -9,6 +9,8 @@ service ImageService {
   rpc DownloadImage(DownloadRequest) returns (stream DownloadResponse);
   rpc GetImageInfo(GetImageInfoRequest) returns (GetImageInfoResponse);
   rpc DeleteImage(DeleteRequest) returns (DeleteResponse);
+  rpc GetImageState(GetImageStateRequest)
+      returns (stream GetImageStateResponse);
 }
 
 message UploadRequest {
@@ -38,12 +40,16 @@ message GetImageInfoRequest { string AccountId = 1; }
 
 message GetImageInfoResponse { repeated ImageInfoItem Images = 1; }
 
-message DeleteRequest { ImageInfoItem image = 1; }
+message DeleteRequest { ImageInfoItem Image = 1; }
 
 message DeleteResponse {
   bool Success = 1;
   string Message = 2;
 }
+
+message GetImageStateRequest { string FileId = 1; }
+
+message GetImageStateResponse { ImageInfoItem Image = 1; }
 
 message ImageInfoItem {
   string Id = 1;

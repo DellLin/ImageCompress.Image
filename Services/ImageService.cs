@@ -1,4 +1,6 @@
-using System.Net.Mime;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using Google.Cloud.Storage.V1;
 using Grpc.Core;
@@ -6,8 +8,6 @@ using ImageCompress;
 using ImageCompress.Image.DBContents;
 using ImageCompress.Image.DBModels.ImageCompress;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
-using System;
 using Google.Protobuf;
 
 public class ImageService : ImageCompress.ImageService.ImageServiceBase
@@ -72,7 +72,7 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
 
         var fileByteArray = ms.ToArray();
         imageInfo.OriginSize = fileByteArray.Length;
-        _logger.LogInformation(JsonConvert.SerializeObject(imageInfo));
+        // _logger.LogInformation(JsonConvert.SerializeObject(imageInfo));
 
         _postgresContext.Add(imageInfo);
         _storageClient.UploadObject(ORIGIN_BUCKET_NAME, fileId.ToString(), imageInfo.ContentType, new MemoryStream(fileByteArray));
@@ -134,5 +134,34 @@ public class ImageService : ImageCompress.ImageService.ImageServiceBase
         response.Success = true;
         return response;
 
+    }
+    public override async Task GetImageState(GetImageStateRequest request, IServerStreamWriter<GetImageStateResponse> responseStream, ServerCallContext context)
+    {
+        var fileId = request.FileId;
+        var imageInfo = _postgresContext.ImageInfo.Find(Guid.Parse(fileId));
+        if (imageInfo == null)
+            return;
+        for (var i = 0; i < 10; i++)
+        {
+            var state = imageInfo!.State;
+            await responseStream.WriteAsync(new GetImageStateResponse
+            {
+                Image = new ImageInfoItem
+                {
+                    Id = imageInfo.Id.ToString(),
+                    FileName = imageInfo.OriginFileName,
+                    OriginSize = imageInfo.OriginSize ?? 0,
+                    CompressedSize = imageInfo.CompressedSize ?? 0,
+                    ContentType = imageInfo.ContentType ?? "",
+                    Quality = imageInfo.Quality ?? 0,
+                    State = imageInfo.State ?? 0,
+                }
+            });
+            if (state == 2)
+                break;
+            await Task.Delay(1000);
+            imageInfo = _postgresContext.ImageInfo.Find(Guid.Parse(fileId));
+        }
+        return;
     }
 }
